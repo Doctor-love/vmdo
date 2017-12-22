@@ -1,5 +1,5 @@
 # vmdo - Execute actions in guest over VM channel (host component) 
-#### Version 0.1 / "Fresh Tabbouli"
+#### 0.2 / "Marvelous Maamoul"
 
 ## Introduction
 This little script allows you to execute actions inside a virtual machine that have been requested from the host/hypervisor.  

@@ -4,9 +4,10 @@
 '''vmdo - Execute actions in guest over VM channel (host component)'''
 
 DESCRIPTION = __doc__
-VERSION = '0.1 / "Fresh Tabbouli"'
+VERSION = '0.2 / "Marvelous Maamoul"'
 URL = 'https://github.com/doctor-love/vmdo'
 
+from multiprocessing.pool import ThreadPool
 from collections import namedtuple
 import logging as _log
 import argparse
@@ -53,18 +54,25 @@ def get_active_channels(channel_dir):
 def get_channel_path(channel_dir, target):
     _log.debug('Checking channel path for target "%s"' % target)
 
-    channel_path = channel_dir + 'domain-%s' % target + '/org.rsw.vmdo.0'
-    _log.debug('Channel path for target "%s": "%s"' % (target, channel_path))
+    channel_glob = channel_dir + 'domain*%s' % target + '/org.rsw.vmdo.0'
+    _log.debug('Channel glob for target "%s": "%s"' % (target, channel_glob))
 
-    # Not using os.path.isfile here, cuz' it does not work for sockets
-    if not glob.glob(channel_path):
+    # Using glob here, since the naming is different between libvirt versions
+    channel_path = glob.glob(channel_glob)
+
+    if not len(channel_path) is 1:
         raise Exception('Could not find active channel for VM "%s"' % target)
+
+    channel_path = channel_path[0]
 
     return channel_path
 
 
 # -----------------------------------------------------------------------------
 def execute_action(channel, action, timeout, params):
+
+    channel, action, timeout, params 
+
     _log.debug(
         'Executing action "%s" with parameters "%s" in channel "%s"'
         % (action, params, channel.path))
@@ -112,7 +120,7 @@ def execute_action(channel, action, timeout, params):
         '%s%s - RC: %i - "%s"%s'
         % (color, channel.vm_name, status, msg, '\033[0m'))
 
-    return
+    return status
 
 
 # -----------------------------------------------------------------------------
@@ -182,12 +190,19 @@ except Exception as error_msg:
     sys.exit(3)
 
 # -----------------------------------------------------------------------------
-status_code = []
+pool = ThreadPool(processes=(len(channels)))
+results = []
+status_codes = []
 
 try:
     for channel in channels:
-        status_code.append(
-            execute_action(channel, args.action, args.timeout, args.params))
+        results.append(
+            pool.apply_async(
+                execute_action,
+                (channel, args.action, args.timeout, args.params)))
+
+    for result in results:
+        status_codes.append(result.get())        
 
 except KeyboardInterrupt:
     _log.info('Interrupted by keyboard - exiting!\n')
@@ -197,4 +212,4 @@ except Exception as error_msg:
     _log.error('Failed to execute action: "%s"' % error_msg)
     sys.exit(1)
 
-sys.exit(max(status_code)) 
+sys.exit(max(status_codes)) 
